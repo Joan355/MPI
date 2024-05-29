@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Compilar programas
-gcc -o sequential matrix_multiplication_sequential.c
-mpicc -o parallel matrix_multiplication_parallel.c
+gcc -o secuencial secuencial.c
+mpicc -o paralelo paralelo.c
 
 # Archivo CSV para registrar tiempos
 output_file="execution_times.csv"
@@ -21,18 +21,14 @@ do
     echo "Ejecutando para N=$N"
 
     # Ejecutar programa secuencial y medir el tiempo
-    seq_time=$( { time ./sequential $N; } 2>&1 | grep real | awk '{print $2}' )
+    seq_time=$( { time ./secuencial $N; } 2>&1 | grep real | awk '{print $2}' )
 
     # Ejecutar programa paralelo y medir el tiempo
-    par_time=$( { time mpirun -np $num_processes ./parallel $N; } 2>&1 | grep real | awk '{print $2}' )
+    par_time=$( { time mpirun -np $num_processes ./paralelo $N; } 2>&1 | grep real | awk '{print $2}' )
 
     # Convertir tiempos al formato adecuado (segundos)
-    seq_time_sec=$(echo $seq_time | awk -F'[ms]' '{print $1 * 60 + $2}')
-    par_time_sec=$(echo $par_time | awk -F'[ms]' '{print $1 * 60 + $2}')
-
-    # Reemplazar comas por puntos en los tiempos
-    seq_time_sec=$(echo $seq_time_sec | tr ',' '.')
-    par_time_sec=$(echo $par_time_sec | tr ',' '.')
+    seq_time_sec=$(echo $seq_time | awk -Fm '{print $1 * 60 + $2}')
+    par_time_sec=$(echo $par_time | awk -Fm '{print $1 * 60 + $2}')
 
     # Escribir resultados en el archivo CSV
     echo "$N,$seq_time_sec,$par_time_sec" >> $output_file
