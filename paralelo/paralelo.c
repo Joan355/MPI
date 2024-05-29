@@ -35,8 +35,7 @@ int main(int argc, char *argv[])
 
     if (argc != 2)
     {
-        if (rank == 0)
-            printf("Uso: %s <tamaño de la matriz N>\n", argv[0]);
+        printf("Uso: %s <tamaño de la matriz N>\n", argv[0]);
         return -1;
     }
 
@@ -54,21 +53,31 @@ int main(int argc, char *argv[])
 
     int rows_per_process = N / size;
     int extra_rows = N % size;
-    int start_row, end_row;
 
-    if (rank < extra_rows)
+    int *send_counts = (int *)malloc(size * sizeof(int));
+    int *displs = (int *)malloc(size * sizeof(int));
+    int *recv_counts = (int *)malloc(size * sizeof(int));
+
+    int start_row, end_row, local_rows;
+
+    // Calcular send_counts y displs para MPI_Scatterv y MPI_Gatherv
+    int offset = 0;
+    for (int i = 0; i < size; i++)
     {
-        start_row = rank * (rows_per_process + 1);
-        end_row = start_row + rows_per_process + 1;
-    }
-    else
-    {
-        start_row = rank * rows_per_process + extra_rows;
-        end_row = start_row + rows_per_process;
+        int rows = (i < extra_rows) ? rows_per_process + 1 : rows_per_process;
+        send_counts[i] = rows * N;
+        displs[i] = offset;
+        recv_counts[i] = rows * N;
+        offset += rows * N;
+
+        if (i == rank)
+        {
+            local_rows = rows;
+        }
     }
 
-    local_A = (int *)malloc((end_row - start_row) * N * sizeof(int));
-    local_C = (int *)malloc((end_row - start_row) * N * sizeof(int));
+    local_A = (int *)malloc(local_rows * N * sizeof(int));
+    local_C = (int *)malloc(local_rows * N * sizeof(int));
 
     if (rank == 0)
     {
@@ -81,11 +90,11 @@ int main(int argc, char *argv[])
     }
 
     MPI_Bcast(B, N * N, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Scatterv(A, send_counts, displs, MPI_INT, local_A, (end_row - start_row) * N, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(A, send_counts, displs, MPI_INT, local_A, local_rows * N, MPI_INT, 0, MPI_COMM_WORLD);
 
-    multiply_matrices(local_A, B, local_C, N, 0, end_row - start_row);
+    multiply_matrices(local_A, B, local_C, N, 0, local_rows);
 
-    MPI_Gatherv(local_C, (end_row - start_row) * N, MPI_INT, C, recv_counts, displs, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(local_C, local_rows * N, MPI_INT, C, recv_counts, displs, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (rank == 0)
     {
@@ -103,6 +112,9 @@ int main(int argc, char *argv[])
 
     free(local_A);
     free(local_C);
+    free(send_counts);
+    free(displs);
+    free(recv_counts);
 
     MPI_Finalize();
 
