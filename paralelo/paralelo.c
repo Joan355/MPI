@@ -88,6 +88,10 @@ int main(int argc, char *argv[])
         init_matrix(A, N);
         init_matrix(B, N);
     }
+    else
+    {
+        B = (int *)malloc(N * N * sizeof(int)); // Inicializar B en otros procesos también
+    }
 
     MPI_Bcast(B, N * N, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Scatterv(A, send_counts, displs, MPI_INT, local_A, local_rows * N, MPI_INT, 0, MPI_COMM_WORLD);
